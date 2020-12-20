@@ -245,7 +245,11 @@ namespace Microsoft.Xna.Framework.Graphics
         {
             _programCache = new ShaderProgramCache(this);
 #if DESKTOPGL || ANGLE
+#if NATIVE
+            var windowInfo = new WindowInfo(NativeGameWindow.Instance.Handle);
+#else
             var windowInfo = new WindowInfo(SdlGameWindow.Instance.Handle);
+#endif
 
             if (Context == null || Context.IsDisposed)
             {
@@ -1252,7 +1256,11 @@ namespace Microsoft.Xna.Framework.Graphics
         internal void OnPresentationChanged()
         {
 #if DESKTOPGL || ANGLE
+#if NATIVE
+            Context.MakeCurrent(new WindowInfo(NativeGameWindow.Instance.Handle));
+#else
             Context.MakeCurrent(new WindowInfo(SdlGameWindow.Instance.Handle));
+#endif
             Context.SwapInterval = PresentationParameters.PresentationInterval.GetSwapInterval();
 #endif
 

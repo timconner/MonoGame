@@ -106,7 +106,9 @@ namespace Microsoft.Xna.Framework
             if (_graphicsDevice != null)
                 return;
 
+#if !DEBUG
             try
+#endif
             {
                 var gdi = DoPreparingDeviceSettings();
 
@@ -115,6 +117,7 @@ namespace Microsoft.Xna.Framework
 
                 CreateDevice(gdi);
             }
+#if !DEBUG
             catch (NoSuitableGraphicsDeviceException)
             {
                 throw;
@@ -123,9 +126,10 @@ namespace Microsoft.Xna.Framework
             {
                 throw new NoSuitableGraphicsDeviceException("Failed to create graphics device!", ex);
             }
-        }
+#endif
+    }
 
-        private void CreateDevice(GraphicsDeviceInformation gdi)
+    private void CreateDevice(GraphicsDeviceInformation gdi)
         {
             if (_graphicsDevice != null)
                 return;
@@ -167,7 +171,7 @@ namespace Microsoft.Xna.Framework
             }
         }
 
-        #region Events
+#region Events
 
         /// <inheritdoc />
         public event EventHandler<EventArgs> DeviceCreated;
@@ -255,9 +259,9 @@ namespace Microsoft.Xna.Framework
             return gdi;
         }
 
-        #endregion
+#endregion
 
-        #region IDisposable Members
+#region IDisposable Members
 
         public void Dispose()
         {
@@ -282,7 +286,7 @@ namespace Microsoft.Xna.Framework
             }
         }
 
-        #endregion
+#endregion
 
         partial void PlatformApplyChanges();
 

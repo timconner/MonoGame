@@ -1,0 +1,237 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <DefineConstants>OPENGL;OPENAL;XNADESIGNPROVIDED;LINUX;DESKTOPGL;SUPPORTS_EFX;NETSTANDARD;STBSHARP_INTERNAL;NATIVE</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Description>The MonoGame runtime supporting Windows, Linux and macOS using SDL2 and OpenGL.</Description>
+    <PackageTags>monogame;.net core;core;.net standard;standard;desktopgl</PackageTags>
+    <PackageId>MonoGame.Framework.Native</PackageId>
+  </PropertyGroup>
+
+  <!-- NETFX reference assemblies let us target .NET Framework on Mac/Linux without Mono -->
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.0">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="bin\**\*" />
+    <Compile Remove="obj\**\*" />
+    <Compile Remove="Platform\**\*" />
+    <Compile Remove="Properties\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Remove="Platform\**\*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Graphics\GraphicsAdapter.cs" />
+    <Compile Remove="Media\Video.cs" />
+    <Compile Remove="Media\VideoPlayer.cs" />
+    <Compile Remove="Content\ContentReaders\VideoReader.cs" />
+    <Compile Remove="Input\MessageBox.cs" />
+    <Compile Remove="Input\KeyboardInput.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Platform\TitleContainer.Desktop.cs" />
+    <Compile Include="Platform\Audio\OggStream.cs" />
+    <Compile Include="Platform\Graphics\OpenGL.Common.cs" />
+    <Compile Include="Platform\Graphics\Texture2D.StbSharp.cs" />
+    <Compile Include="Platform\Utilities\AssemblyHelper.cs" />
+    <Compile Include="Platform\Utilities\CurrentPlatform.cs" />
+    <Compile Include="Platform\Utilities\FuncLoader.Desktop.cs" />
+    <Compile Include="Platform\Utilities\InteropHelpers.cs" />
+    <Compile Include="Platform\Utilities\ReflectionHelpers.Default.cs" />
+    <Compile Include="Platform\Media\MediaLibrary.Default.cs" />
+    <Compile Include="Platform\Media\MediaPlayer.Default.cs" />
+    <Compile Include="Platform\Media\Song.NVorbis.cs" />
+    <Compile Include="Platform\Input\GamePad.Default.cs" />
+    <Compile Include="Platform\Input\InputKeyEventArgs.cs" />
+    <Compile Include="Platform\Input\Joystick.Default.cs" />
+    <Compile Include="Platform\Input\Keyboard.Default.cs" />
+    <Compile Include="Platform\Input\KeysHelper.cs" />
+    <Compile Include="Platform\Input\Mouse.Default.cs" />
+    <Compile Include="Platform\Input\MouseCursor.Default.cs" />
+    <Compile Include="Platform\Graphics\GraphicsContext.SDL.cs" />
+    <Compile Include="Platform\Graphics\OpenGL.SDL.cs" />
+    <Compile Include="Platform\Graphics\WindowInfo.SDL.cs" />
+    <Compile Include="Platform\Graphics\GraphicsAdapter.Legacy.cs" />
+    <Compile Include="Platform\GamePlatform.Desktop.cs" />
+    <Compile Include="Platform\GraphicsDeviceManager.SDL.cs" />
+    
+    <Compile Include="..\ThirdParty\StbImageSharp\src\**\*.cs" LinkBase="Utilities\StbImageSharp" />
+    <Compile Include="..\ThirdParty\StbImageWriteSharp\src\**\*.cs" LinkBase="Utilities\StbImageWriteSharp" />
+
+    <Compile Include="..\ThirdParty\NVorbis\NVorbis\**\*.cs" LinkBase="ThirdParty\NVorbis" />
+    <Compile Remove="..\ThirdParty\NVorbis\NVorbis\Properties\AssemblyInfo.cs" />
+    <Compile Include="Platform\Native\NativeGamePlatform.cs" />
+    <Compile Include="Platform\Native\NativeGameWindow.cs" />
+    <Compile Include="Platform\SDL\SDL2.cs" />
+    <Compile Include="Platform\Native\MGNative.cs">
+      <DependentUpon>MGNative.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="MonoGame.bmp">
+      <LogicalName>MonoGame.bmp</LogicalName>
+    </EmbeddedResource>
+    <EmbeddedResource Include="..\ThirdParty\SDL_GameControllerDB\gamecontrollerdb.txt">
+      <LogicalName>gamecontrollerdb.txt</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\ThirdParty\Dependencies\openal-soft\Windows\x86\soft_oal.dll">
+      <Link>x86\soft_oal.dll</Link>
+      <PackagePath>runtimes\win-x86\native</PackagePath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+
+    <Content Include="..\ThirdParty\Dependencies\openal-soft\Windows\x64\soft_oal.dll">
+      <Link>x64\soft_oal.dll</Link>
+      <PackagePath>runtimes\win-x64\native</PackagePath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+
+    <Content Include="..\ThirdParty\Dependencies\openal-soft\Linux\x64\libopenal.so.1">
+      <Link>x64\libopenal.so.1</Link>
+      <PackagePath>runtimes\linux-x64\native</PackagePath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+
+    <Content Include="..\ThirdParty\Dependencies\openal-soft\MacOS\Universal\libopenal.1.dylib">
+      <Link>libopenal.1.dylib</Link>
+      <PackagePath>runtimes\osx\native</PackagePath>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+
+    <Content Include="MonoGame.Framework.DesktopGL.targets" PackagePath="build" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Platform\Native\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Platform\Native\MGNative.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>MGNative.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <Import Project="Platform\OpenGL.targets" />
+  <Import Project="Platform\OpenAL.targets" />
+  
+  <UsingTask TaskName="ExportEnums" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)\Microsoft.Build.Tasks.Core.dll">
+      <ParameterGroup>
+        <AssemblyPath ParameterType="System.String" Required="true" />
+        <OutputPath ParameterType="System.String" Required="true" />
+      </ParameterGroup>
+    <Task>
+      <Using Namespace="System" />
+      <Using Namespace="System.IO" />
+      <Using Namespace="System.Linq" />
+      <Using Namespace="System.Reflection" />
+      <Code Type="Fragment" Language="cs">
+<![CDATA[
+            Func<string, string> GetCType = (cstype) =>
+            {
+                switch (cstype)
+                {
+                    case "System.Byte":
+                        return "mgbyte";
+                    case "System.SByte":
+                        return "mgsbyte";
+                    case "System.Int32":
+                        return "mgint";
+                    case "System.UInt32":
+                        return "mguint";
+                    case "System.Int16":
+                        return "mgshort";
+                    case "System.UInt16":
+                        return "mgushort";
+                    case "System.Int64":
+                        return "mglong";
+                    case "System.UInt64":
+                        return "mgulong";
+                    case "System.Single":
+                        return "mgfloat";
+                    case "System.Double":
+                        return "mgdouble";
+                    case "System.Char":
+                        return "mgchar";
+                    case "System.Boolean":
+                        return "mgbool";
+                    case "System.Decimal":
+                        return "mgdecimal";
+                }
+
+                return "MG" + cstype;
+            };
+            
+            Log.LogMessageFromText($"AssemblyPath: '{AssemblyPath}'", MessageImportance.High);
+            Log.LogMessageFromText($"OutputPath:   '{OutputPath}'", MessageImportance.High);
+
+            var lines = new List<string>();
+            var dupDict = new Dictionary<string, bool>();
+
+            lines.Add("// MonoGame - Copyright (C) The MonoGame Team");
+            lines.Add("// This file is subject to the terms and conditions defined in");
+            lines.Add("// file 'LICENSE.txt', which is part of this source code package.");
+            lines.Add("");
+            lines.Add("//");
+            lines.Add("// This code is auto generated, don't modify it by hand.");
+            lines.Add("//");
+            lines.Add("");
+            lines.Add("#pragma once");
+            lines.Add("");
+            lines.Add("#include \"mgcommon.h\"");
+            lines.Add("");
+
+            foreach (var en in Assembly.LoadFile(AssemblyPath).GetTypes().Where(t => t.IsEnum))
+            {
+                if (!en.FullName.StartsWith("MonoGame.Framework") &&
+                    !en.FullName.StartsWith("Microsoft.Xna.Framework"))
+                    continue;
+
+                var enumName = en.Name.ToString();
+                if (dupDict.ContainsKey(enumName))
+                    continue;
+                dupDict[enumName] = true;
+
+                lines.Add("enum class MG" + enumName + " : " + GetCType(Enum.GetUnderlyingType(en).ToString()));
+                lines.Add("{");
+
+                var maxLength = 0;
+
+                foreach (var env in Enum.GetValues(en))
+                    maxLength = Math.Max(maxLength, 2 + env.ToString().Length);
+
+                foreach (var env in Enum.GetValues(en))
+                {
+                    var enumValue = env.ToString();
+                    if (dupDict.ContainsKey(enumName + "::" + enumValue))
+                        continue;
+                    dupDict[enumName + "::" + enumValue] = true;
+
+                    lines.Add("    " + enumValue.PadRight(maxLength, ' ') + " = " + ((Enum)env).ToString("d") + ",");
+                }
+
+                lines.Add("};");
+            }
+
+            File.WriteAllLines(OutputPath, lines);
+]]>
+      </Code>
+    </Task>
+  </UsingTask>
+
+  <Target Name="PostBuildScript" AfterTargets="Build">
+    <ExportEnums AssemblyPath="$(MSBuildThisFileDirectory)/$(OutputPath)/$(AssemblyName).dll" OutputPath="$(MSBuildThisFileDirectory)/../MGNative/include/mgenums.h" />
+  </Target>
+
+</Project>

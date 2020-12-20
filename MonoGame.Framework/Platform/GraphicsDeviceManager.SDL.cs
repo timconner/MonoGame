@@ -10,6 +10,7 @@ namespace Microsoft.Xna.Framework
     {
         partial void PlatformInitialize(PresentationParameters presentationParameters)
         {
+#if !NATIVE
             var surfaceFormat = _game.graphicsDeviceManager.PreferredBackBufferFormat.GetColorFormat();
             var depthStencilFormat = _game.graphicsDeviceManager.PreferredDepthStencilFormat;
 
@@ -50,6 +51,7 @@ namespace Microsoft.Xna.Framework
             }
 
             ((SdlGameWindow)SdlGameWindow.Instance).CreateWindow();
+#endif
         }
     }
 }
