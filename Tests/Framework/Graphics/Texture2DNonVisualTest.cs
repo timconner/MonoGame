@@ -8,6 +8,7 @@ using System.Runtime.InteropServices;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using NUnit.Framework;
+using StbImageSharp;
 
 namespace MonoGame.Tests.Graphics
 {
@@ -27,6 +28,7 @@ namespace MonoGame.Tests.Graphics
         [TestCase("Assets/Textures/8bit.png")]
         [TestCase("Assets/Textures/24bit.png")]
         [TestCase("Assets/Textures/32bit.png")]
+        [TestCase("Assets/Textures/sample_1280x853.hdr")]
         public void FromStreamShouldWorkTest(string filename)
         {
             using (System.IO.StreamReader reader = new System.IO.StreamReader(filename))
@@ -36,16 +38,9 @@ namespace MonoGame.Tests.Graphics
             Assert.NotNull(_texture);
             try
             {
-
-                System.Drawing.Bitmap bitmap = new System.Drawing.Bitmap(filename);
-                System.Drawing.GraphicsUnit gu = System.Drawing.GraphicsUnit.Pixel;
-                System.Drawing.RectangleF rf = bitmap.GetBounds(ref gu);
-                Rectangle rt = _texture.Bounds;
-                Assert.AreEqual((int)rf.Bottom, rt.Bottom);
-                Assert.AreEqual((int)rf.Left, rt.Left);
-                Assert.AreEqual((int)rf.Right, rt.Right);
-                Assert.AreEqual((int)rf.Top, rt.Top);
-                bitmap.Dispose();
+                var bitmap = ImageResult.FromMemory(File.ReadAllBytes(filename), StbImageSharp.ColorComponents.RedGreenBlueAlpha);
+                Assert.AreEqual((int)bitmap.Height, _texture.Height);
+                Assert.AreEqual((int)bitmap.Width, _texture.Width);
             }//The dds file test case can't be checked with System.Drawing because it does not understand this format
             catch { }
             _texture.Dispose();
@@ -75,6 +70,57 @@ namespace MonoGame.Tests.Graphics
             // XNA misses this check and throws a NullReferenceException
             Assert.Throws<ArgumentNullException>(() => Texture2D.FromStream(null, new MemoryStream()));
 #endif
+        }
+
+        [Test]
+        public void FromStreamCustomProcessor()
+        {
+            // This test sets the color of every other color to custom color
+            var customValue = Color.BurlyWood;
+
+            var flag = false;
+            using (var stream = File.OpenRead("Assets/Textures/red_128.png"))
+            using (var texture = Texture2D.FromStream(gd, stream, data =>
+            {
+                for(var i = 0; i < data.Length; i += 4)
+                {
+                    if (flag)
+                    {
+                        data[i + 0] = customValue.R;
+                        data[i + 1] = customValue.G;
+                        data[i + 2] = customValue.B;
+                        data[i + 3] = customValue.A;
+                    }
+
+                    flag = !flag;
+                }
+            }))
+            {
+                Assert.AreEqual(8, texture.Width);
+                Assert.AreEqual(8, texture.Height);
+                Assert.AreEqual(1, texture.LevelCount);
+                var pngData = new Color[8 * 8];
+                texture.GetData(pngData);
+
+                flag = false;
+                for (var i = 0; i < pngData.Length; i++)
+                {
+                    if (!flag)
+                    {
+                        // Value unchanged
+                        Assert.AreEqual(255, pngData[i].R);
+                        Assert.AreEqual(0, pngData[i].G);
+                        Assert.AreEqual(0, pngData[i].B);
+                        Assert.AreEqual(128, pngData[i].A);
+                    } else
+                    {
+                        // Custom value
+                        Assert.AreEqual(customValue, pngData[i]);
+                    }
+
+                    flag = !flag;
+                }
+            }
         }
 
         [TestCase]

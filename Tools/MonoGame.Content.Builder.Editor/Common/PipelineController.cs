@@ -12,7 +12,6 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using MonoGame.Content.Builder;
-using MonoGame.Tools.Pipeline.Utilities;
 using PathHelper = MonoGame.Framework.Content.Pipeline.Builder.PathHelper;
 
 namespace MonoGame.Tools.Pipeline
@@ -31,11 +30,11 @@ namespace MonoGame.Tools.Pipeline
         private static readonly string [] _mgcbSearchPaths = new []       
         {
 #if DEBUG
-            Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "../../../MonoGame.Content.Builder/Debug"),
-            Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "../../../../../../MonoGame.Content.Builder/Debug"),
+            Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "../../../MonoGame.Content.Builder/Debug/mgcb.dll"),
+            Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "../../../../../../MonoGame.Content.Builder/Debug/mgcb.dll"),
 #else
-            Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "../../../MonoGame.Content.Builder/Release"),
-            Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "../../../../../../MonoGame.Content.Builder/Release"),
+            Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "../../../MonoGame.Content.Builder/Release/mgcb.dll"),
+            Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "", "../../../../../../MonoGame.Content.Builder/Release/mgcb.dll"),
 #endif
         };
 
@@ -104,12 +103,16 @@ namespace MonoGame.Tools.Pipeline
             ProjectOpen = false;
 
             _templateItems = new List<ContentItemTemplate>();
-            var root = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
-            if (Directory.Exists(Path.Combine (root, "..", "Resources", "Templates")))
-            {
-                root = Path.Combine(root, "..", "Resources");
-            }
-            LoadTemplates(Path.Combine(root, "../../../Templates"));
+            var root = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? "";
+            var templatesPath = Path.Combine(root, "Templates");
+
+#if IDE
+            LoadTemplates(root);
+#else
+            if (Directory.Exists(templatesPath))
+                LoadTemplates(templatesPath);
+#endif
+
             UpdateMenu();
 
             view.UpdateRecentList(PipelineSettings.Default.ProjectHistory);
@@ -401,7 +404,7 @@ namespace MonoGame.Tools.Pipeline
 
             // If the project itself was selected, just
             // rebuild the entire project
-            if (items.Contains(_project))
+            if (SelectedItems.Contains(_project))
             {
                 Build(true);
                 return;
@@ -492,7 +495,20 @@ namespace MonoGame.Tools.Pipeline
                 encoding = Encoding.UTF8;
             }
             
+            var mgcbCommand = "mgcb";
             var currentDir = Environment.CurrentDirectory;
+
+            foreach (var path in _mgcbSearchPaths)
+            {
+                var fullPath = Path.Combine(currentDir, path);
+
+                if (File.Exists(fullPath))
+                {
+                    mgcbCommand = fullPath;
+                    break;
+                }
+            }
+
             try
             {
                 // Prepare the process.
@@ -500,15 +516,15 @@ namespace MonoGame.Tools.Pipeline
                 {
                     StartInfo = new ProcessStartInfo
                     {
-                        FileName = "mgcb",
-                        Arguments = commands,
+                        FileName = Global.Unix ? "dotnet" : "dotnet.exe",
+                        Arguments = $"{mgcbCommand} {commands}",
                         WorkingDirectory = Path.GetDirectoryName(_project.OriginalPath),
                         CreateNoWindow = true,
                         WindowStyle = ProcessWindowStyle.Hidden,
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
                         StandardOutputEncoding = encoding
-                    }.ResolveDotnetApp(_mgcbSearchPaths, waitForExit: true)
+                    }
                 };
                 _buildProcess.OutputDataReceived += (sender, args) => View.OutputAppend(args.Data);
 

@@ -4,7 +4,7 @@
 
 using System;
 using System.Collections.Generic;
-using MonoGame.Utilities;
+using MonoGame.Framework.Utilities;
 using SharpDX;
 using SharpDX.Multimedia;
 using SharpDX.XAudio2;
@@ -52,13 +52,6 @@ namespace Microsoft.Xna.Framework.Audio
 
             // Dequeue all the submitted buffers
             _voice.FlushSourceBuffers();
-
-            while (_queuedBuffers.Count > 0)
-            {
-                var buffer = _queuedBuffers.Dequeue();
-                buffer.Stream.Dispose();
-                _bufferPool.Return(_pooledBuffers.Dequeue());
-            }
         }
 
         private void PlatformSubmitBuffer(byte[] buffer, int offset, int count)

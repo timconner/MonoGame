@@ -200,13 +200,29 @@ namespace Microsoft.Xna.Framework.Graphics
             return ((int[])Data)[0];
 #endif
         }
-        
-        /*
-		public int[] GetValueInt32Array ()
-		{
-			throw new NotImplementedException();
-		}
-        */
+
+        public int[] GetValueInt32Array()
+        {
+            if (Elements != null && Elements.Count > 0)
+            {
+                var ret = new int[RowCount * ColumnCount * Elements.Count];
+                for (int i = 0; i < Elements.Count; i++)
+                {
+                    var elmArray = Elements[i].GetValueInt32Array();
+                    for (var j = 0; j < elmArray.Length; j++)
+                        ret[RowCount * ColumnCount * i + j] = elmArray[j];
+                }
+                return ret;
+            }
+
+            switch (ParameterClass)
+            {
+                case EffectParameterClass.Scalar:
+                    return new int[] { GetValueInt32() };
+                default:
+                    throw new NotImplementedException();
+            }
+        }
 
 		public Matrix GetValueMatrix ()
 		{
@@ -430,6 +446,12 @@ namespace Microsoft.Xna.Framework.Graphics
 
 		public void SetValue (int value)
 		{
+            if (ParameterType == EffectParameterType.Single)
+            {
+                SetValue((float)value);
+                return;
+            }
+
             if (ParameterClass != EffectParameterClass.Scalar || ParameterType != EffectParameterType.Int32)
                 throw new InvalidCastException();
 
@@ -442,12 +464,13 @@ namespace Microsoft.Xna.Framework.Graphics
             StateKey = unchecked(NextStateKey++);
 		}
 
-        /*
-		public void SetValue (int[] value)
-		{
-			throw new NotImplementedException();
-		}
-        */
+        public void SetValue(int[] value)
+        {
+            for (var i = 0; i < value.Length; i++)
+                Elements[i].SetValue(value[i]);
+
+            StateKey = unchecked(NextStateKey++);
+        }
 
         public void SetValue(Matrix value)
         {
@@ -498,6 +521,20 @@ namespace Microsoft.Xna.Framework.Graphics
                 fData[9] = value.M23;
                 fData[10] = value.M33;
                 fData[11] = value.M43;
+            }
+            else if (RowCount == 4 && ColumnCount == 2)
+            {
+                var fData = (float[])Data;
+
+                fData[0] = value.M11;
+                fData[1] = value.M21;
+                fData[2] = value.M31;
+                fData[3] = value.M41;
+
+                fData[4] = value.M12;
+                fData[5] = value.M22;
+                fData[6] = value.M32;
+                fData[7] = value.M42;
             }
             else if (RowCount == 3 && ColumnCount == 4)
             {
@@ -602,6 +639,20 @@ namespace Microsoft.Xna.Framework.Graphics
                 fData[10] = value.M42;
                 fData[11] = value.M43;
             }
+            else if (RowCount == 4 && ColumnCount == 2)
+            {
+                var fData = (float[])Data;
+
+                fData[0] = value.M11;
+                fData[1] = value.M21;
+                fData[2] = value.M31;
+                fData[3] = value.M41;
+
+                fData[4] = value.M12;
+                fData[5] = value.M22;
+                fData[6] = value.M32;
+                fData[7] = value.M42;
+            }
             else if (RowCount == 3 && ColumnCount == 4)
             {
                 var fData = (float[])Data;
@@ -705,6 +756,23 @@ namespace Microsoft.Xna.Framework.Graphics
                     fData[9] = value[i].M23;
                     fData[10] = value[i].M33;
                     fData[11] = value[i].M43;
+                }
+            }
+            else if (RowCount == 4 && ColumnCount == 2)
+            {
+                for (var i = 0; i < value.Length; i++)
+                {
+                    var fData = (float[])Elements[i].Data;
+
+                    fData[0] = value[i].M11;
+                    fData[1] = value[i].M21;
+                    fData[2] = value[i].M31;
+                    fData[3] = value[i].M41;
+
+                    fData[4] = value[i].M12;
+                    fData[5] = value[i].M22;
+                    fData[6] = value[i].M32;
+                    fData[7] = value[i].M42;
                 }
             }
             else if (RowCount == 3 && ColumnCount == 4)

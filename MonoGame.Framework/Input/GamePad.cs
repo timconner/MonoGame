@@ -12,20 +12,20 @@ namespace Microsoft.Xna.Framework.Input
     public static partial class GamePad
     {
         /// <summary>
-        /// Returns the capabilites of the connected controller.
+        /// Returns the capabilities of the connected controller.
         /// </summary>
         /// <param name="playerIndex">Player index for the controller you want to query.</param>
-        /// <returns>The capabilites of the controller.</returns>
+        /// <returns>The capabilities of the controller.</returns>
         public static GamePadCapabilities GetCapabilities(PlayerIndex playerIndex)
         {
             return GetCapabilities((int)playerIndex);
         }
 
         /// <summary>
-        /// Returns the capabilites of the connected controller.
+        /// Returns the capabilities of the connected controller.
         /// </summary>
         /// <param name="index">Index for the controller you want to query.</param>
-        /// <returns>The capabilites of the controller.</returns>
+        /// <returns>The capabilities of the controller.</returns>
         public static GamePadCapabilities GetCapabilities(int index)
         {
             if (index < 0 || index >= PlatformGetMaxNumberOfGamePads())
@@ -163,9 +163,7 @@ namespace Microsoft.Xna.Framework.Input
         }
 
         /// <summary>
-        /// The maximum number of game pads supported on this system.  Attempting to
-        /// access a gamepad index higher than this number will result in an <see cref="InvalidOperationException"/>
-        /// being thrown by the API.
+        /// The maximum number of game pads supported on this system.
         /// </summary>
         public static int MaximumGamePadCount
         {

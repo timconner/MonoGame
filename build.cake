@@ -1,25 +1,39 @@
-#tool nuget:?package=vswhere&version=2.6.7
-#tool nuget:?package=NUnit.ConsoleRunner&version=3.4.0
+#tool nuget:?package=vswhere&version=2.8.4
+#tool nuget:?package=NUnit.ConsoleRunner&version=3.13.2
+#addin nuget:?package=Cake.FileHelpers&version=5.0.0
 
 //////////////////////////////////////////////////////////////////////
 // ARGUMENTS
 //////////////////////////////////////////////////////////////////////
 
 var target = Argument("build-target", "Default");
-var version = Argument("build-version", EnvironmentVariable("BUILD_NUMBER") ?? "3.8.0.1");
+var version = Argument("build-version", EnvironmentVariable("BUILD_NUMBER") ?? "3.8.1.1");
+var repositoryUrl = Argument("repository-url", "https://github.com/MonoGame/MonoGame");
 var configuration = Argument("build-configuration", "Release");
 
 //////////////////////////////////////////////////////////////////////
 // PREPARATION
 //////////////////////////////////////////////////////////////////////
 
-MSBuildSettings msPackSettings, mdPackSettings;
-DotNetCoreMSBuildSettings dnBuildSettings;
-DotNetCorePackSettings dnPackSettings;
+MSBuildSettings msPackSettings, mdPackSettings, msBuildSettings;
+DotNetMSBuildSettings dnMsBuildSettings;
+DotNetBuildSettings dnBuildSettings;
+DotNetPackSettings dnPackSettings;
+DotNetPublishSettings dnPublishSettings;
 
-private void PackProject(string filePath)
+private void PackMSBuild(string filePath)
 {
     MSBuild(filePath, msPackSettings);
+}
+
+private void PackDotnet(string filePath)
+{
+    DotNetPack(filePath, dnPackSettings);
+}
+
+private void PublishDotnet(string filePath)
+{
+    DotNetPublish(filePath, dnPublishSettings);
 }
 
 private bool GetMSBuildWith(string requires)
@@ -42,6 +56,29 @@ private bool GetMSBuildWith(string requires)
     return false;
 }
 
+private void ParseVersion()
+{
+    if (!string.IsNullOrEmpty(EnvironmentVariable("GITHUB_ACTIONS")))
+    {
+        version = "3.8.1." + EnvironmentVariable("GITHUB_RUN_NUMBER");
+
+        if (EnvironmentVariable("GITHUB_REPOSITORY") != "MonoGame/MonoGame")
+            version += "-" + EnvironmentVariable("GITHUB_REPOSITORY_OWNER");
+        else if (EnvironmentVariable("GITHUB_REF_TYPE") == "branch" && EnvironmentVariable("GITHUB_REF") != "refs/heads/master")
+            version += "-develop";
+
+        repositoryUrl = "https://github.com/" + EnvironmentVariable("GITHUB_REPOSITORY");
+    }
+    else
+    {
+        var branch = EnvironmentVariable("BRANCH_NAME") ?? string.Empty;    
+        if (!branch.Contains("master"))
+            version += "-develop";
+    }
+
+    Console.WriteLine("Version: " + version);
+}
+
 //////////////////////////////////////////////////////////////////////
 // TASKS
 //////////////////////////////////////////////////////////////////////
@@ -49,41 +86,70 @@ private bool GetMSBuildWith(string requires)
 Task("Prep")
     .Does(() =>
 {
-    // We tag the version with the build branch to make it
-    // easier to spot special builds in NuGet feeds.
-    var branch = EnvironmentVariable("GIT_BRANCH") ?? string.Empty;
-    if (branch == "develop")
-	version += "-develop";
+    // Set MGFXC_WINE_PATH for building shaders on macOS and Linux
+    System.Environment.SetEnvironmentVariable("MGFXC_WINE_PATH", EnvironmentVariable("HOME") + "/.winemonogame");
 
-    Console.WriteLine("Build Version: {0}", version);
+    ParseVersion();
 
     msPackSettings = new MSBuildSettings();
     msPackSettings.Verbosity = Verbosity.Minimal;
     msPackSettings.Configuration = configuration;
+    msPackSettings.Restore = true;
     msPackSettings.WithProperty("Version", version);
+    msPackSettings.WithProperty("OutputDirectory", "Artifacts/NuGet");
+    msPackSettings.WithProperty("RepositoryUrl", repositoryUrl);
     msPackSettings.WithTarget("Pack");
 
     mdPackSettings = new MSBuildSettings();
     mdPackSettings.Verbosity = Verbosity.Minimal;
     mdPackSettings.Configuration = configuration;
     mdPackSettings.WithProperty("Version", version);
+    mdPackSettings.WithProperty("RepositoryUrl", repositoryUrl);
     mdPackSettings.WithTarget("PackageAddin");
 
-    dnBuildSettings = new DotNetCoreMSBuildSettings();
-    dnBuildSettings.WithProperty("Version", version);
+    msBuildSettings = new MSBuildSettings();
+    msBuildSettings.Verbosity = Verbosity.Minimal;
+    msBuildSettings.Configuration = configuration;
+    msBuildSettings.WithProperty("Version", version);
+    msBuildSettings.WithProperty("RepositoryUrl", repositoryUrl);
 
-    dnPackSettings = new DotNetCorePackSettings();
-    dnPackSettings.MSBuildSettings = dnBuildSettings;
-    dnPackSettings.Verbosity = DotNetCoreVerbosity.Minimal;
+    dnMsBuildSettings = new DotNetMSBuildSettings();
+    dnMsBuildSettings.WithProperty("Version", version);
+    dnMsBuildSettings.WithProperty("RepositoryUrl", repositoryUrl);
+
+    dnBuildSettings = new DotNetBuildSettings();
+    dnBuildSettings.MSBuildSettings = dnMsBuildSettings;
+    dnBuildSettings.Verbosity = DotNetVerbosity.Minimal;
+    dnBuildSettings.Configuration = configuration;
+
+    dnPackSettings = new DotNetPackSettings();
+    dnPackSettings.MSBuildSettings = dnMsBuildSettings;
+    dnPackSettings.Verbosity = DotNetVerbosity.Minimal;
+    dnPackSettings.OutputDirectory = "Artifacts/NuGet";
     dnPackSettings.Configuration = configuration;
+
+    dnPublishSettings = new DotNetPublishSettings();
+    dnPublishSettings.MSBuildSettings = dnMsBuildSettings;
+    dnPublishSettings.Verbosity = DotNetVerbosity.Minimal;
+    dnPublishSettings.Configuration = configuration;
+    dnPublishSettings.SelfContained = false;
+});
+
+Task("BuildConsoleCheck")
+    .IsDependentOn("Prep")
+    .WithCriteria(() => IsRunningOnWindows())
+    .Does(() =>
+{
+    DotNetRestore("MonoGame.Framework/MonoGame.Framework.ConsoleCheck.csproj");
+    DotNetBuild("MonoGame.Framework/MonoGame.Framework.ConsoleCheck.csproj");
 });
 
 Task("BuildDesktopGL")
     .IsDependentOn("Prep")
     .Does(() =>
 {
-    DotNetCoreRestore("MonoGame.Framework/MonoGame.Framework.DesktopGL.csproj");
-    PackProject("MonoGame.Framework/MonoGame.Framework.DesktopGL.csproj");
+    DotNetRestore("MonoGame.Framework/MonoGame.Framework.DesktopGL.csproj");
+    PackDotnet("MonoGame.Framework/MonoGame.Framework.DesktopGL.csproj");
 });
 
 Task("TestDesktopGL")
@@ -92,10 +158,10 @@ Task("TestDesktopGL")
     .Does(() =>
 {
     CreateDirectory("Artifacts/Tests/DesktopGL/Debug");
-    DotNetCoreRun("../../../../Tests/MonoGame.Tests.DesktopGL.csproj", "", new DotNetCoreRunSettings
+    DotNetRun("../../../../Tests/MonoGame.Tests.DesktopGL.csproj", "", new DotNetRunSettings
     {
         WorkingDirectory = "Artifacts/Tests/DesktopGL/Debug",
-	    ArgumentCustomization = args => args.Append("--teamcity")
+        ArgumentCustomization = args => args.Append("--teamcity")
     });
 });
 
@@ -104,8 +170,8 @@ Task("BuildWindowsDX")
     .WithCriteria(() => IsRunningOnWindows())
     .Does(() =>
 {
-    DotNetCoreRestore("MonoGame.Framework/MonoGame.Framework.WindowsDX.csproj");
-    PackProject("MonoGame.Framework/MonoGame.Framework.WindowsDX.csproj");
+    DotNetRestore("MonoGame.Framework/MonoGame.Framework.WindowsDX.csproj");
+    PackDotnet("MonoGame.Framework/MonoGame.Framework.WindowsDX.csproj");
 });
 
 Task("TestWindowsDX")
@@ -114,10 +180,10 @@ Task("TestWindowsDX")
     .Does(() =>
 {
     CreateDirectory("Artifacts/Tests/WindowsDX/Debug");
-    DotNetCoreRun("../../../../Tests/MonoGame.Tests.WindowsDX.csproj", "", new DotNetCoreRunSettings
+    DotNetRun("../../../../Tests/MonoGame.Tests.WindowsDX.csproj", "", new DotNetRunSettings
     {
         WorkingDirectory = "Artifacts/Tests/WindowsDX/Debug",
-	    ArgumentCustomization = args => args.Append("--teamcity")
+        ArgumentCustomization = args => args.Append("--teamcity")
     });
 });
 
@@ -131,67 +197,85 @@ Task("BuildAndroid")
     return DirectoryExists("/Library/Frameworks/Xamarin.Android.framework");
 }).Does(() =>
 {
-    DotNetCoreRestore("MonoGame.Framework/MonoGame.Framework.Android.csproj");
-    PackProject("MonoGame.Framework/MonoGame.Framework.Android.csproj");
+    PackDotnet("MonoGame.Framework/MonoGame.Framework.Android.csproj");
 });
 
 Task("BuildiOS")
     .IsDependentOn("Prep")
     .WithCriteria(() =>
 {
+    if (IsRunningOnWindows())
+        return GetMSBuildWith("Component.Xamarin");
+
     return DirectoryExists("/Library/Frameworks/Xamarin.iOS.framework");
 }).Does(() =>
 {
-    DotNetCoreRestore("MonoGame.Framework/MonoGame.Framework.iOS.csproj");
-    PackProject("MonoGame.Framework/MonoGame.Framework.iOS.csproj");
+    PackDotnet("MonoGame.Framework/MonoGame.Framework.iOS.csproj");
 });
 
 Task("BuildUWP")
     .IsDependentOn("Prep")
-    .WithCriteria(() => GetMSBuildWith("Microsoft.VisualStudio.Component.Windows10SDK.17763"))
+    .WithCriteria(() => GetMSBuildWith("Microsoft.VisualStudio.Component.Windows10SDK.19041"))
     .Does(() =>
 {
-    DotNetCoreRestore("MonoGame.Framework/MonoGame.Framework.WindowsUniversal.csproj");
-    PackProject("MonoGame.Framework/MonoGame.Framework.WindowsUniversal.csproj");
+    PackMSBuild("MonoGame.Framework/MonoGame.Framework.WindowsUniversal.csproj");
 });
 
 Task("BuildContentPipeline")
     .IsDependentOn("Prep")
     .Does(() =>
 {
-    DotNetCoreRestore("MonoGame.Framework.Content.Pipeline/MonoGame.Framework.Content.Pipeline.csproj");
-    PackProject("MonoGame.Framework.Content.Pipeline/MonoGame.Framework.Content.Pipeline.csproj");
+    PackDotnet("Tools/MonoGame.Effect.Compiler/MonoGame.Effect.Compiler.csproj");
+
+    PackDotnet("MonoGame.Framework.Content.Pipeline/MonoGame.Framework.Content.Pipeline.csproj");
 });
 
 Task("BuildTools")
-    .IsDependentOn("Prep")
+    .IsDependentOn("BuildContentPipeline")
     .Does(() =>
 {
-    DotNetCoreRestore("Tools/MonoGame.Content.Builder/MonoGame.Content.Builder.csproj");
-    PackProject("Tools/MonoGame.Content.Builder/MonoGame.Content.Builder.csproj");
-    
-    DotNetCoreRestore("Tools/MonoGame.Effect.Compiler/MonoGame.Effect.Compiler.csproj");
-    PackProject("Tools/MonoGame.Effect.Compiler/MonoGame.Effect.Compiler.csproj");
-    
-    DotNetCoreRestore("Tools/MonoGame.Content.Builder.Editor/MonoGame.Content.Builder.Editor.csproj");
-    PackProject("Tools/MonoGame.Content.Builder.Editor/MonoGame.Content.Builder.Editor.csproj");
+    PackDotnet("Tools/MonoGame.Content.Builder/MonoGame.Content.Builder.csproj");
 
-    DotNetCoreRestore("Tools/MonoGame.Content.Builder.Task/MonoGame.Content.Builder.Task.csproj");
-    PackProject("Tools/MonoGame.Content.Builder.Task/MonoGame.Content.Builder.Task.csproj");
+    PackDotnet("Tools/MonoGame.Effect.Compiler/MonoGame.Effect.Compiler.csproj");
 
-    DotNetCoreRestore("Tools/MonoGame.Packaging.Flatpak/MonoGame.Packaging.Flatpak.csproj");
-    PackProject("Tools/MonoGame.Packaging.Flatpak/MonoGame.Packaging.Flatpak.csproj");
+    PackDotnet("Tools/MonoGame.Content.Builder.Task/MonoGame.Content.Builder.Task.csproj");
+
+    PackDotnet("Tools/MonoGame.Packaging.Flatpak/MonoGame.Packaging.Flatpak.csproj");
+    
+    var versionReg = @"<key>CFBundleShortVersionString<\/key>\s*<string>([^\s]*)<\/string>";
+    var plistPath = "Tools/MonoGame.Content.Builder.Editor/Info.plist";
+    var newVersion = "<key>CFBundleShortVersionString</key>\n\t<string>" + version + "</string>";
+    ReplaceRegexInFiles(plistPath, versionReg, newVersion, System.Text.RegularExpressions.RegexOptions.Singleline);
+    
+    if (IsRunningOnWindows())
+    {
+        PublishDotnet("Tools/MonoGame.Content.Builder.Editor/MonoGame.Content.Builder.Editor.Windows.csproj");
+        PackDotnet("Tools/MonoGame.Content.Builder.Editor.Launcher/MonoGame.Content.Builder.Editor.Launcher.Windows.csproj");
+    }
+    else if (IsRunningOnMacOs())
+    {
+        PublishDotnet("Tools/MonoGame.Content.Builder.Editor/MonoGame.Content.Builder.Editor.Mac.csproj");
+        PackDotnet("Tools/MonoGame.Content.Builder.Editor.Launcher/MonoGame.Content.Builder.Editor.Launcher.Mac.csproj");
+    }
+    else
+    {
+        PublishDotnet("Tools/MonoGame.Content.Builder.Editor/MonoGame.Content.Builder.Editor.Linux.csproj");
+        PackDotnet("Tools/MonoGame.Content.Builder.Editor.Launcher/MonoGame.Content.Builder.Editor.Launcher.Linux.csproj");
+    }
+
+    PackDotnet("Tools/MonoGame.Content.Builder.Editor.Launcher.Bootstrap/MonoGame.Content.Builder.Editor.Launcher.Bootstrap.csproj");
 });
 
 Task("TestTools")
     .IsDependentOn("BuildTools")
     .Does(() =>
 {
-    CreateDirectory("Artifacts/Tests/Tools/Debug");
-    DotNetCoreRun("../../../../Tools/MonoGame.Tools.Tests/MonoGame.Tools.Tests.csproj", "", new DotNetCoreRunSettings
+    CreateDirectory("Artifacts/Tests/Tools/" + configuration);
+    DotNetRun("../../../../Tools/MonoGame.Tools.Tests/MonoGame.Tools.Tests.csproj", "", new DotNetRunSettings
     {
-        WorkingDirectory = "Artifacts/Tests/Tools/Debug",
-	    ArgumentCustomization = args => args.Append("--teamcity")
+        WorkingDirectory = "Artifacts/Tests/Tools/" + configuration,
+        ArgumentCustomization = args => args.Append("--teamcity"),
+        Configuration = configuration
     });
 });
 
@@ -199,8 +283,7 @@ Task("PackDotNetTemplates")
     .IsDependentOn("Prep")
     .Does(() =>
 {
-    DotNetCoreRestore("Templates/MonoGame.Templates.CSharp/MonoGame.Templates.CSharp.csproj");
-    PackProject("Templates/MonoGame.Templates.CSharp/MonoGame.Templates.CSharp.csproj");
+    PackDotnet("Templates/MonoGame.Templates.CSharp/MonoGame.Templates.CSharp.csproj");
 });
 
 Task("PackVSTemplates")
@@ -208,33 +291,30 @@ Task("PackVSTemplates")
     .WithCriteria(() => IsRunningOnWindows())
     .Does(() =>
 {
-    var vsdirs = GetDirectories("./Templates/VisualStudio20*");
-    foreach (var vsdir in vsdirs)
-    {
-        DeleteFiles(vsdir.CombineWithFilePath("*.zip").FullPath);
-        var projdirs = GetDirectories(vsdir.CombineWithFilePath("*").FullPath);
-        foreach (var projdir in projdirs)
-        {
-            var outputPath = vsdir.CombineWithFilePath(projdir.GetDirectoryName() + ".zip");
-                Zip(projdir, outputPath);
-        }
-    }
-});
+    var shortVersion = version.Split('-')[0];
 
-Task("PackVSMacTemplates")
-    .IsDependentOn("PackDotNetTemplates")
-    .WithCriteria(() => IsRunningOnUnix() && DirectoryExists("/Applications") && DirectoryExists("/Library"))
-    .Does(() =>
-{
-    DotNetCoreRestore("Templates/VisualStudioForMac/MonoGame.IDE.VisualStudioForMac.csproj");
-    MSBuild("Templates/VisualStudioForMac/MonoGame.IDE.VisualStudioForMac.csproj", mdPackSettings);
+    var versionReg = "<Identity Version=\"([^\"]*)\"";
+    var filePath = "Templates/MonoGame.Templates.VSExtension/source.extension.vsixmanifest";
+    var newVersion = "<Identity Version=\"" + shortVersion + "\"";
+    ReplaceRegexInFiles(filePath, versionReg, newVersion, System.Text.RegularExpressions.RegexOptions.Singleline);
+
+    versionReg = "[0-9](\\.[0-9])*";
+    filePath = "Templates/MonoGame.Templates.VSExtension/Templates.pkgdef";
+    ReplaceRegexInFiles(filePath, versionReg, shortVersion, System.Text.RegularExpressions.RegexOptions.Singleline);
+
+    DotNetRestore("Templates/MonoGame.Templates.VSExtension/MonoGame.Templates.VSExtension.csproj");
+    MSBuild("Templates/MonoGame.Templates.VSExtension/MonoGame.Templates.VSExtension.csproj", msBuildSettings);
 });
 
 //////////////////////////////////////////////////////////////////////
 // TASK TARGETS
 //////////////////////////////////////////////////////////////////////
 
+Task("SanityCheck")
+    .IsDependentOn("Prep");
+
 Task("BuildAll")
+    .IsDependentOn("BuildConsoleCheck")
     .IsDependentOn("BuildDesktopGL")
     .IsDependentOn("BuildWindowsDX")
     .IsDependentOn("BuildAndroid")
@@ -246,8 +326,7 @@ Task("BuildAll")
 Task("Pack")
     .IsDependentOn("BuildAll")
     .IsDependentOn("PackDotNetTemplates")
-    .IsDependentOn("PackVSTemplates")
-    .IsDependentOn("PackVSMacTemplates");
+    .IsDependentOn("PackVSTemplates");
 
 Task("Test")
     .IsDependentOn("TestWindowsDX")

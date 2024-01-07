@@ -6,6 +6,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 using Windows.UI.Core;
 using Windows.UI.ViewManagement;
@@ -127,6 +128,8 @@ namespace Microsoft.Xna.Framework
 
             if (Windows.Foundation.Metadata.ApiInformation.IsTypePresent("Windows.Phone.UI.Input.HardwareButtons"))
                 Windows.Phone.UI.Input.HardwareButtons.BackPressed += this.HardwareButtons_BackPressed;
+            else
+                SystemNavigationManager.GetForCurrentView().BackRequested += this.BackRequested;
 
             SetViewBounds(_appView.VisibleBounds.Width, _appView.VisibleBounds.Height);
 
@@ -214,7 +217,7 @@ namespace Microsoft.Xna.Framework
 
         private void Dispatcher_AcceleratorKeyActivated(CoreDispatcher sender, AcceleratorKeyEventArgs args)
         {
-            // NOTE: Dispatcher event is used becuase KeyDown event doesn't handle Alt key
+            // NOTE: Dispatcher event is used because KeyDown event doesn't handle Alt key
             var key = InputEvents.KeyTranslate(args.VirtualKey, args.KeyStatus);
             switch (args.EventType)
             {
@@ -270,7 +273,16 @@ namespace Microsoft.Xna.Framework
                 _viewBounds.Height == height)
                 return;
 
-            var viewSize = new Windows.Foundation.Size(width / _dinfo.RawPixelsPerViewPixel, height / _dinfo.RawPixelsPerViewPixel);
+            double rawPixelsPerViewPixel = 1.0d;
+            if (CoreWindow.GetForCurrentThread() != null)
+                rawPixelsPerViewPixel = _dinfo.RawPixelsPerViewPixel;
+            else
+                Task.Run(async () =>
+                {
+                    await Windows.ApplicationModel.Core.CoreApplication.MainView.CoreWindow.Dispatcher.RunAsync(
+                        CoreDispatcherPriority.Normal, () => { rawPixelsPerViewPixel = _dinfo.RawPixelsPerViewPixel; });
+                }).Wait();
+            var viewSize = new Windows.Foundation.Size(width / rawPixelsPerViewPixel, height / rawPixelsPerViewPixel);
 
             //_appView.SetPreferredMinSize(viewSize);
             if (!_appView.TryResizeView(viewSize))
@@ -317,6 +329,12 @@ namespace Microsoft.Xna.Framework
             e.Handled = true;
         }
 
+        private void BackRequested(object sender, BackRequestedEventArgs e)
+        {
+            // Prevent Xbox from suspending the app when the user press 'B' button.
+            e.Handled = true;
+        }
+
         private void UpdateBackButton()
         {
             GamePad.Back = _backPressed;
@@ -334,12 +352,15 @@ namespace Microsoft.Xna.Framework
                 return;
 
             var asyncResult = _coreWindow.Dispatcher.RunIdleAsync( (e) =>
-           {
-               if (visible)
-                   _coreWindow.PointerCursor = new CoreCursor(CoreCursorType.Arrow, 0);
-               else
-                   _coreWindow.PointerCursor = null;
-           });
+            {
+                if (visible)
+                    _coreWindow.PointerCursor = new CoreCursor(CoreCursorType.Arrow, 0);
+                else
+                    _coreWindow.PointerCursor = null;
+
+                // On UAP platform it is also necessary to set the cursor of CoreIndependentInputSource in InputEvents
+                _inputEvents.CoreCursor = _coreWindow.PointerCursor;
+            });
         }
 
         internal void RunLoop()

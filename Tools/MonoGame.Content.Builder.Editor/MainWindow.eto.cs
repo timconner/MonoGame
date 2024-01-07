@@ -4,8 +4,8 @@
 
 using System;
 using Eto;
-using Eto.Forms;
 using Eto.Drawing;
+using Eto.Forms;
 
 namespace MonoGame.Tools.Pipeline
 {
@@ -50,8 +50,11 @@ namespace MonoGame.Tools.Pipeline
         {
             Title = "MGCB Editor";
             Icon = Icon.FromResource("Icons.monogame.png");
+
+#if !IDE
             Size = new Size(900, 550);
             MinimumSize = new Size(400, 400);
+#endif
 
             InitalizeCommands();
             InitalizeMenu();
@@ -66,26 +69,34 @@ namespace MonoGame.Tools.Pipeline
 
             splitterVertical = new Splitter();
             splitterVertical.Orientation = Orientation.Vertical;
-            splitterVertical.Position = 230;
             splitterVertical.FixedPanel = SplitterFixedPanel.None;
-            splitterVertical.Panel1MinimumSize = 100;
-            splitterVertical.Panel2MinimumSize = 100;
 
             projectControl = new ProjectControl();
             _pads.Add(projectControl);
-            splitterVertical.Panel1 = projectControl;
 
             propertyGridControl = new PropertyGridControl();
             _pads.Add(propertyGridControl);
-            splitterVertical.Panel2 = propertyGridControl;
-
-            splitterHorizontal.Panel1 = splitterVertical;
 
             buildOutput = new BuildOutput();
             _pads.Add(buildOutput);
-            splitterHorizontal.Panel2 = buildOutput;
 
+#if IDE
+            splitterVertical.Panel1 = projectControl;
+            splitterVertical.Panel2 = propertyGridControl;
+            splitterVertical.Position = 230;
+
+            Add(splitterVertical, true, true);
+#else
+            splitterVertical.Panel1MinimumSize = 100;
+            splitterVertical.Panel2MinimumSize = 100;
+            splitterVertical.Position = 230;
+
+            splitterVertical.Panel1 = projectControl;
+            splitterVertical.Panel2 = propertyGridControl;
+            splitterHorizontal.Panel1 = splitterVertical;
+            splitterHorizontal.Panel2 = buildOutput;
             Content = splitterHorizontal;
+#endif
 
             cmdNew.Executed += CmdNew_Executed;
             cmdOpen.Executed += CmdOpen_Executed;
@@ -183,6 +194,7 @@ namespace MonoGame.Tools.Pipeline
             cmdRename = new Command();
             cmdRename.MenuText = "Rename";
             cmdRename.Image = Global.GetEtoIcon("Commands.Rename.png");
+            cmdRename.Shortcut = Keys.F2;
 
             cmdDelete = new Command();
             cmdDelete.MenuText = "Delete";
@@ -365,9 +377,11 @@ namespace MonoGame.Tools.Pipeline
             toolClean = cmdClean.CreateToolItem();
             toolCancelBuild = cmdCancelBuild.CreateToolItem();
 
-            ToolBar = toolbar = new ToolBar();
+            toolbar = new ToolBar();
+#if !MAC
+            ToolBar = toolbar;
             ToolBar.Style = "ToolBar";
-            
+                 
             ToolBar.Items.Add(cmdNew);
             ToolBar.Items.Add(cmdOpen);
             ToolBar.Items.Add(cmdSave);
@@ -384,6 +398,7 @@ namespace MonoGame.Tools.Pipeline
             ToolBar.Items.Add(toolRebuild);
             ToolBar.Items.Add(toolClean);
             toolbar.Items.Add(toolCancelBuild);
+#endif
         }
     }
 }
